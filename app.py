@@ -64,7 +64,7 @@ async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         btn = [[InlineKeyboardButton("✅ Approve", callback_data=f'app_{update.effective_user.id}_{qty}'),
                 InlineKeyboardButton("❌ Reject", callback_data=f'rej_{update.effective_user.id}')]]
         await context.bot.send_message(config.ADMIN_ID, f"🔔 New Order\nUser: @{update.effective_user.username}\nQty: {qty}\nUTR: {utr}", reply_markup=InlineKeyboardMarkup(btn))
-        await update.message.reply_text("✅ Payment received! Verification in progress.")
+        await update.message.reply_text("✅ PaymentnVerification is in progress please wait.")
         context.user_data['awaiting_utr'] = False
 
 async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -80,7 +80,7 @@ async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.callback_query.edit_message_text("⚠️ Error: Stock disappeared! Contact support.")
     else:
-        await context.bot.send_message(user_id, "❌ Your payment is not confirmed. Please check your UTR or contact support.")
+        await context.bot.send_message(user_id, "❌ Your payment is not confirmed. Please check your UTR or contact support @ZtraxModOwner.")
         await update.callback_query.edit_message_text("❌ Order Rejected.")
 
 if __name__ == '__main__':

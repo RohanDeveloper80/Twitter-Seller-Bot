@@ -1,0 +1,4 @@
+TOKEN = '8978417488:AAFgZQVp1CtBhi4FrT4RdTGbpjp-s-lUf9A'
+ADMIN_ID = '5818126906'
+UPI_ID = 'eliteascent@naviaxis'
+PRICE_PER_ACCOUNT = 20

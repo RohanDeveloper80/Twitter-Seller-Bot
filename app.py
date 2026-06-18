@@ -1,110 +1,291 @@
-import os, config, qrcode, io
+import os
+import config
+import qrcode
+import io
+
 from flask import Flask
 from threading import Thread
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    filters,
+    ContextTypes
+)
 
 app_web = Flask(__name__)
-@app_web.route('/')
-def home(): return "Bot is live!"
 
-# --- Logic: Read and update stock from accounts.txt ---
+
+@app_web.route('/')
+def home():
+    return "Bot is live!"
+
+
+# ---------------- STOCK FUNCTIONS ----------------
+
 def get_stock():
-    if not os.path.exists('accounts.txt'): return 0
-    with open('accounts.txt', 'r') as f: return len(f.readlines())
+    if not os.path.exists("accounts.txt"):
+        return 0
+
+    with open("accounts.txt", "r", encoding="utf-8") as f:
+        return len(f.readlines())
+
 
 def get_accounts(qty):
-    with open('accounts.txt', 'r') as f: lines = f.readlines()
-    if len(lines) < qty: return None
-    accounts = [lines[i].strip() for i in range(qty)]
-    with open('accounts.txt', 'w') as f: f.writelines(lines[qty:])
+    if not os.path.exists("accounts.txt"):
+        return None
+
+    with open("accounts.txt", "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    if len(lines) < qty:
+        return None
+
+    accounts = [line.strip() for line in lines[:qty]]
+
+    with open("accounts.txt", "w", encoding="utf-8") as f:
+        f.writelines(lines[qty:])
+
     return accounts
 
-# --- Bot Handlers ---
+
+# ---------------- USER COMMANDS ----------------
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    kb = [[InlineKeyboardButton("🛒 Buy Accounts", callback_data='buy')],
-          [InlineKeyboardButton("📊 Check Stock", callback_data='stock')]]
-    await update.message.reply_text("✨ Welcome to Twitter Accounts Store!", reply_markup=InlineKeyboardMarkup(kb))
+    keyboard = [
+        [InlineKeyboardButton("🛒 Buy Accounts", callback_data="buy")],
+        [InlineKeyboardButton("📊 Check Stock", callback_data="stock")]
+    ]
+
+    await update.message.reply_text(
+        "✨ Welcome to Twitter Accounts Store!",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+
+async def ask_utr(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+
+    context.user_data["awaiting_utr"] = True
+
+    await update.callback_query.message.reply_text(
+        "📱 Please send your 12-digit UTR number."
+    )
+
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    if query.data == 'stock':
-        await query.edit_message_text(f"📊 Current Stock: {get_stock()} accounts.")
-    
-    elif query.data == 'buy':
-        kb = [[InlineKeyboardButton(f"{i} Acc (₹{i*20})", callback_data=f'amt_{i}')] for i in [1, 2, 4, 5]]
-        await query.edit_message_text("🔢 Choose quantity:", reply_markup=InlineKeyboardMarkup(kb))
-    
-    elif query.data.startswith('amt_'):
-        qty = int(query.data.split('_')[1])
-        # Check stock BEFORE asking for money
+    if query.data == "stock":
+        await query.edit_message_text(
+            f"📊 Current Stock: {get_stock()} accounts."
+        )
+
+    elif query.data == "buy":
+
+        keyboard = [
+            [InlineKeyboardButton(f"{i} Acc (₹{i * 20})", callback_data=f"amt_{i}")]
+            for i in [1, 2, 4, 5]
+        ]
+
+        await query.edit_message_text(
+            "🔢 Choose quantity:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+    elif query.data.startswith("amt_"):
+
+        qty = int(query.data.split("_")[1])
+
         if get_stock() < qty:
-            await query.edit_message_text("❌ Sorry, not enough stock for that quantity.")
+            await query.edit_message_text(
+                "❌ Sorry, not enough stock for that quantity."
+            )
             return
-            
-        context.user_data.update({'qty': qty})
-        upi_url = f"upi://pay?pa={config.UPI_ID}&pn=EliteAscent&am={qty*20}&cu=INR"
+
+        context.user_data["qty"] = qty
+
+        upi_url = (
+            f"upi://pay?"
+            f"pa={config.UPI_ID}"
+            f"&pn=EliteAscent"
+            f"&am={qty * 20}"
+            f"&cu=INR"
+        )
+
         img = qrcode.make(upi_url)
-        bio = io.BytesIO(); img.save(bio, 'PNG'); bio.seek(0)
-        
-        cap = f"💰 Amount to Pay: ₹{qty*20}\nScan this QR. Once paid, click the button below to submit your UTR."
-        btn = [[InlineKeyboardButton("📱 Submit Reference No. (UTR)", callback_data='submit_utr')]]
-        await query.message.reply_photo(photo=bio, caption=cap, reply_markup=InlineKeyboardMarkup(btn))
+
+        bio = io.BytesIO()
+        img.save(bio, "PNG")
+        bio.seek(0)
+
+        caption = (
+            f"💰 Amount to Pay: ₹{qty * 20}\n\n"
+            f"Scan this QR code.\n"
+            f"After payment click the button below and submit your UTR."
+        )
+
+        keyboard = [
+            [InlineKeyboardButton(
+                "📱 Submit Reference No. (UTR)",
+                callback_data="submit_utr"
+            )]
+        ]
+
+        await query.message.reply_photo(
+            photo=bio,
+            caption=caption,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+
+# ---------------- PAYMENT HANDLER ----------------
 
 async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data.get('awaiting_utr'):
-        utr = update.message.text
-        if len(utr) != 12 or not utr.isdigit():
-            await update.message.reply_text("❌ Invalid UTR. Please send exactly 12 digits.")
-            return
-        
-        qty = context.user_data.get('qty')
-        btn = [[InlineKeyboardButton("✅ Approve", callback_data=f'app_{update.effective_user.id}_{qty}'),
-                InlineKeyboardButton("❌ Reject", callback_data=f'rej_{update.effective_user.id}')]]
-        await context.bot.send_message(config.ADMIN_ID, f"🔔 New Order\nUser: @{update.effective_user.username}\nQty: {qty}\nUTR: {utr}", reply_markup=InlineKeyboardMarkup(btn))
-        await update.message.reply_text("✅ PaymentnVerification is in progress please wait.")
-        context.user_data['awaiting_utr'] = False
+
+    if not context.user_data.get("awaiting_utr"):
+        return
+
+    if context.user_data.get("payment_sent"):
+        await update.message.reply_text(
+            "⏳ Your payment is already under verification."
+        )
+        return
+
+    utr = update.message.text.strip()
+
+    if len(utr) != 12 or not utr.isdigit():
+        await update.message.reply_text(
+            "❌ Invalid UTR. Please send exactly 12 digits."
+        )
+        return
+
+    qty = context.user_data.get("qty", 1)
+
+    keyboard = [[
+        InlineKeyboardButton(
+            "✅ Approve",
+            callback_data=f"app_{update.effective_user.id}_{qty}"
+        ),
+        InlineKeyboardButton(
+            "❌ Reject",
+            callback_data=f"rej_{update.effective_user.id}"
+        )
+    ]]
+
+    await context.bot.send_message(
+        chat_id=config.ADMIN_ID,
+        text=(
+            f"🔔 NEW ORDER\n\n"
+            f"👤 User: @{update.effective_user.username}\n"
+            f"🆔 ID: {update.effective_user.id}\n"
+            f"📦 Quantity: {qty}\n"
+            f"💰 Amount: ₹{qty * 20}\n"
+            f"🏦 UTR: {utr}"
+        ),
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+    context.user_data["awaiting_utr"] = False
+    context.user_data["payment_sent"] = True
+
+    await update.message.reply_text(
+        "✅ Payment verification is in progress.\nPlease wait for admin approval."
+    )
+
+
+# ---------------- ADMIN ACTIONS ----------------
 
 async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = update.callback_query.data.split('_')
-    action, user_id = data[0], data[1]
-    
-  if action == 'app':
-    qty = int(data[2])
 
-    print(f"APPROVE CLICKED - Qty: {qty}")
+    query = update.callback_query
+    await query.answer()
 
-    accounts = get_accounts(qty)
+    data = query.data.split("_")
 
-    print(f"Accounts delivered: {accounts}")
+    action = data[0]
+    user_id = int(data[1])
 
-    if accounts:
+    if action == "app":
+
+        qty = int(data[2])
+
+        accounts = get_accounts(qty)
+
+        if accounts:
+
+            await context.bot.send_message(
+                user_id,
+                "✅ Payment verified!\n\nYour accounts:\n\n"
+                + "\n".join(accounts)
+            )
+
+            await query.edit_message_text(
+                "✅ Order Approved and delivered."
+            )
+
+        else:
+
+            await query.edit_message_text(
+                "⚠️ Error: Stock disappeared! Contact support."
+            )
+
+    else:
+
         await context.bot.send_message(
             user_id,
-            f"✅ Payment verified!\nYour accounts:\n" + "\n".join(accounts)
+            "❌ Your payment is not confirmed.\nPlease check your UTR or contact support @ZtraxModOwner."
         )
 
-        await update.callback_query.edit_message_text(
-            "✅ Order Approved and delivered."
+        await query.edit_message_text(
+            "❌ Order Rejected."
         )
-    else:
-        await update.callback_query.edit_message_text(
-            "⚠️ Error: Stock disappeared! Contact support."
-        )
-        else:
-            await update.callback_query.edit_message_text("⚠️ Error: Stock disappeared! Contact support.")
-    else:
-        await context.bot.send_message(user_id, "❌ Your payment is not confirmed. Please check your UTR or contact support @ZtraxModOwner.")
-        await update.callback_query.edit_message_text("❌ Order Rejected.")
 
-if __name__ == '__main__':
-    Thread(target=lambda: app_web.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))).start()
+
+# ---------------- MAIN ----------------
+
+if __name__ == "__main__":
+
+    Thread(
+        target=lambda: app_web.run(
+            host="0.0.0.0",
+            port=int(os.environ.get("PORT", 8080))
+        )
+    ).start()
+
     app = Application.builder().token(config.TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button_handler, pattern='^(buy|stock|amt_.*)$'))
-    app.add_handler(CallbackQueryHandler(lambda u, c: c.user_data.update({'awaiting_utr': True}) or u.callback_query.message.reply_text("Please reply with your 12-digit UTR:"), pattern='submit_utr'))
-    app.add_handler(CallbackQueryHandler(admin_action, pattern='^(app|rej)_'))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_payment))
+
+    app.add_handler(
+        CallbackQueryHandler(
+            button_handler,
+            pattern="^(buy|stock|amt_.*)$"
+        )
+    )
+
+    app.add_handler(
+        CallbackQueryHandler(
+            ask_utr,
+            pattern="submit_utr"
+        )
+    )
+
+    app.add_handler(
+        CallbackQueryHandler(
+            admin_action,
+            pattern="^(app|rej)_"
+        )
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            handle_payment
+        )
+    )
+
     app.run_polling()

@@ -220,8 +220,6 @@ async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ---------------- MAIN ----------------
 
-# ---------------- MAIN ----------------
-
 if __name__ == "__main__":
 
     Thread(
@@ -276,29 +274,3 @@ if __name__ == "__main__":
         drop_pending_updates=True,
         close_loop=False
     )
-
-    app.add_handler(
-        CallbackQueryHandler(
-            ask_utr,
-            pattern="submit_utr"
-        )
-    )
-
-    app.add_handler(
-        CallbackQueryHandler(
-            admin_action,
-            pattern="^(app|rej)_"
-        )
-    )
-
-    app.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            handle_payment
-        )
-    )
-
-    app.run_polling(
-    drop_pending_updates=True,
-    allowed_updates=Update.ALL_TYPES
-)

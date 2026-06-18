@@ -1,43 +1,50 @@
 import os
+import io
 import config
 import qrcode
-import io
 import database
 
 from flask import Flask
 from threading import Thread
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+
+from telegram import (
+Update,
+InlineKeyboardButton,
+InlineKeyboardMarkup
+)
+
 from telegram.ext import (
 Application,
 CommandHandler,
 CallbackQueryHandler,
 MessageHandler,
-filters,
-ContextTypes
+ContextTypes,
+filters
 )
 
-app_web = Flask(__name__)
+app_web = Flask(**name**)
 
-@app_web.route('/')
+@app_web.route("/")
 def home():
 return "Bot is live!"
 
-# ---------------- USER COMMANDS ----------------
+# ---------------- START ----------------
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-keyboard = [
-[InlineKeyboardButton("🛒 Buy Accounts", callback_data="buy")],
-[InlineKeyboardButton("📊 Check Stock", callback_data="stock")]
-]
 
 ```
+keyboard = [
+    [InlineKeyboardButton("🛒 Buy Accounts", callback_data="buy")],
+    [InlineKeyboardButton("📊 Check Stock", callback_data="stock")]
+]
+
 await update.message.reply_text(
     "✨ Welcome to Twitter Accounts Store!",
     reply_markup=InlineKeyboardMarkup(keyboard)
 )
 ```
 
-# ---------------- ADMIN ADD ACCOUNTS ----------------
+# ---------------- ADMIN ADD ----------------
 
 async def add_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -84,17 +91,19 @@ return True
 # ---------------- UTR ----------------
 
 async def ask_utr(update: Update, context: ContextTypes.DEFAULT_TYPE):
-await update.callback_query.answer()
 
 ```
+query = update.callback_query
+await query.answer()
+
 context.user_data["awaiting_utr"] = True
 
-await update.callback_query.message.reply_text(
+await query.message.reply_text(
     "📱 Please send your 12-digit UTR number."
 )
 ```
 
-# ---------------- BUTTON HANDLER ----------------
+# ---------------- BUTTONS ----------------
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -181,6 +190,7 @@ if not context.user_data.get("awaiting_utr"):
     return
 
 if context.user_data.get("payment_sent"):
+
     await update.message.reply_text(
         "⏳ Payment already under verification."
     )
@@ -229,7 +239,7 @@ await update.message.reply_text(
 )
 ```
 
-# ---------------- ADMIN APPROVE / REJECT ----------------
+# ---------------- ADMIN ACTION ----------------
 
 async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -251,9 +261,8 @@ if action == "app":
     if accounts:
 
         await context.bot.send_message(
-            user_id,
-            "✅ Payment verified!\n\n"
-            + "\n".join(accounts)
+            chat_id=user_id,
+            text="✅ Payment verified!\n\n" + "\n".join(accounts)
         )
 
         await query.edit_message_text(
@@ -269,8 +278,8 @@ if action == "app":
 else:
 
     await context.bot.send_message(
-        user_id,
-        "❌ Payment rejected."
+        chat_id=user_id,
+        text="❌ Payment rejected."
     )
 
     await query.edit_message_text(
@@ -279,6 +288,11 @@ else:
 ```
 
 # ---------------- MAIN ----------------
+
+async def post_init(application):
+await application.bot.delete_webhook(
+drop_pending_updates=True
+)
 
 if **name** == "**main**":
 
@@ -292,6 +306,8 @@ Thread(
 ).start()
 
 app = Application.builder().token(config.TOKEN).build()
+
+app.post_init = post_init
 
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("add", add_accounts))
@@ -324,15 +340,7 @@ app.add_handler(
     )
 )
 
-async def post_init(application):
-    await application.bot.delete_webhook(
-        drop_pending_updates=True
-    )
-
-app.post_init = post_init
-
 app.run_polling(
-    drop_pending_updates=True,
-    close_loop=False
+    drop_pending_updates=True
 )
 ```

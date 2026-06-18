@@ -84,11 +84,25 @@ async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.edit_message_text("❌ Order Rejected.")
 
 if __name__ == '__main__':
+    # 1. Start the Flask server
     Thread(target=lambda: app_web.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))).start()
+    
+    # 2. Initialize the bot
     app = Application.builder().token(config.TOKEN).build()
+    
+    # Add all your existing handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler, pattern='^(buy|stock|amt_.*)$'))
     app.add_handler(CallbackQueryHandler(lambda u, c: c.user_data.update({'awaiting_utr': True}) or u.callback_query.message.reply_text("Please reply with your 12-digit UTR:"), pattern='submit_utr'))
     app.add_handler(CallbackQueryHandler(admin_action, pattern='^(app|rej)_'))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_payment))
-    app.run_polling()
+    
+    # 3. Use Webhook instead of polling for 24/7 cloud operation
+    # Replace 'YOUR_RENDER_URL' with your actual URL from the Render Dashboard
+    PORT = int(os.environ.get('PORT', 8080))
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=config.TOKEN,
+        webhook_url=f"https://YOUR_RENDER_URL.onrender.com/{config.TOKEN}"
+    )

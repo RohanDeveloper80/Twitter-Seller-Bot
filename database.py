@@ -87,3 +87,7 @@ def get_accounts(qty):
 
 
 create_database()
+
+add_account("test1@example.com:pass123")
+add_account("test2@example.com:pass123")
+add_account("test3@example.com:pass123")

@@ -220,13 +220,16 @@ async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ---------------- MAIN ----------------
 
+# ---------------- MAIN ----------------
+
 if __name__ == "__main__":
 
     Thread(
         target=lambda: app_web.run(
             host="0.0.0.0",
             port=int(os.environ.get("PORT", 8080))
-        )
+        ),
+        daemon=True
     ).start()
 
     app = Application.builder().token(config.TOKEN).build()
@@ -238,6 +241,40 @@ if __name__ == "__main__":
             button_handler,
             pattern="^(buy|stock|amt_.*)$"
         )
+    )
+
+    app.add_handler(
+        CallbackQueryHandler(
+            ask_utr,
+            pattern="submit_utr"
+        )
+    )
+
+    app.add_handler(
+        CallbackQueryHandler(
+            admin_action,
+            pattern="^(app|rej)_"
+        )
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            handle_payment
+        )
+    )
+
+    # Remove old webhook before polling
+    async def post_init(application):
+        await application.bot.delete_webhook(
+            drop_pending_updates=True
+        )
+
+    app.post_init = post_init
+
+    app.run_polling(
+        drop_pending_updates=True,
+        close_loop=False
     )
 
     app.add_handler(

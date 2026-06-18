@@ -24,34 +24,6 @@ def home():
     return "Bot is live!"
 
 
-# ---------------- STOCK FUNCTIONS ----------------
-
-def get_stock():
-    if not os.path.exists("accounts.txt"):
-        return 0
-
-    with open("accounts.txt", "r", encoding="utf-8") as f:
-        return len(f.readlines())
-
-
-def get_accounts(qty):
-    if not os.path.exists("accounts.txt"):
-        return None
-
-    with open("accounts.txt", "r", encoding="utf-8") as f:
-        lines = f.readlines()
-
-    if len(lines) < qty:
-        return None
-
-    accounts = [line.strip() for line in lines[:qty]]
-
-    with open("accounts.txt", "w", encoding="utf-8") as f:
-        f.writelines(lines[qty:])
-
-    return accounts
-
-
 # ---------------- USER COMMANDS ----------------
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -82,7 +54,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "stock":
         await query.edit_message_text(
-            f"📊 Current Stock: {get_stock()} accounts."
+            f"📊 Current Stock: {database.get_stock()} accounts."
         )
 
     elif query.data == "buy":
@@ -101,7 +73,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         qty = int(query.data.split("_")[1])
 
-        if get_stock() < qty:
+        if database.get_stock() < qty:
             await query.edit_message_text(
                 "❌ Sorry, not enough stock for that quantity."
             )
@@ -214,7 +186,7 @@ async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         qty = int(data[2])
 
-        accounts = get_accounts(qty)
+        accounts = database.get_accounts(qty)
 
         if accounts:
 
@@ -231,7 +203,7 @@ async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
 
             await query.edit_message_text(
-                "⚠️ Error: Stock disappeared! Contact support."
+                "⚠️ Error: No stock available."
             )
 
     else:

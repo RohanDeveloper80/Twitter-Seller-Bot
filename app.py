@@ -26,7 +26,7 @@ app_web = Flask(__name__)
 
 @app_web.route("/")
 def home():
-return "Bot is live!"
+    return "Bot is live!"
 
 # ---------------- START ----------------
 

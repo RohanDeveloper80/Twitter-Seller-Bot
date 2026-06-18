@@ -72,8 +72,13 @@ async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action, user_id = data[0], data[1]
     
     if action == 'app':
-        qty = int(data[2])
-        accounts = get_accounts(qty)
+    qty = int(data[2])
+
+    print(f"APPROVE CLICKED - Qty: {qty}")
+
+    accounts = get_accounts(qty)
+
+    print(f"Accounts delivered: {accounts}")
         if accounts:
             await context.bot.send_message(user_id, f"✅ Payment verified!\nYour accounts:\n" + "\n".join(accounts))
             await update.callback_query.edit_message_text("✅ Order Approved and delivered.")

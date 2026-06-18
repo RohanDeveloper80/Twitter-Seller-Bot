@@ -71,7 +71,7 @@ async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = update.callback_query.data.split('_')
     action, user_id = data[0], data[1]
     
-    if action == 'app':
+  if action == 'app':
     qty = int(data[2])
 
     print(f"APPROVE CLICKED - Qty: {qty}")
@@ -79,9 +79,20 @@ async def admin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     accounts = get_accounts(qty)
 
     print(f"Accounts delivered: {accounts}")
-        if accounts:
-            await context.bot.send_message(user_id, f"✅ Payment verified!\nYour accounts:\n" + "\n".join(accounts))
-            await update.callback_query.edit_message_text("✅ Order Approved and delivered.")
+
+    if accounts:
+        await context.bot.send_message(
+            user_id,
+            f"✅ Payment verified!\nYour accounts:\n" + "\n".join(accounts)
+        )
+
+        await update.callback_query.edit_message_text(
+            "✅ Order Approved and delivered."
+        )
+    else:
+        await update.callback_query.edit_message_text(
+            "⚠️ Error: Stock disappeared! Contact support."
+        )
         else:
             await update.callback_query.edit_message_text("⚠️ Error: Stock disappeared! Contact support.")
     else:

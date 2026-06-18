@@ -1,3 +1,0 @@
-account1:pass1
-account2:pass2
-account3:pass3

@@ -104,5 +104,5 @@ if __name__ == '__main__':
         listen="0.0.0.0",
         port=PORT,
         url_path=config.TOKEN,
-        webhook_url=f"https://YOUR_RENDER_URL.onrender.com/{config.TOKEN}"
+        webhook_url=f"https://https://twitter-seller-bot.onrender.com/{config.TOKEN}"
     )

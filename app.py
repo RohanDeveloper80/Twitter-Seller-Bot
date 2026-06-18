@@ -2,6 +2,7 @@ import os
 import config
 import qrcode
 import io
+import database
 
 from flask import Flask
 from threading import Thread
